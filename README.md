@@ -1,0 +1,3 @@
+# Mosolov
+
+lstm based synthesizer
