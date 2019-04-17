@@ -5,6 +5,9 @@ import os
 import mido
 import threading
 import queue
+import time
+
+import urwid
 
 from magenta.models.music_vae import configs
 from magenta.models.music_vae import TrainedModel
@@ -67,32 +70,30 @@ def stop_note(note):
     port.send(msg)
 
 def play():
+    global BPM
     start = timer()
 
     index = 0
     note_on = False
 
-    print("PLAYING")
+    print("PLAYBACK INITIALIZED")
     while True:
-        notes = results[SAMPLE_INDEX].notes
         if not PLAYING:
             continue
 
-        if index==len(notes):
-            index = 0
-            start = timer()
+        notes = results[SAMPLE_INDEX].notes
 
         note = notes[index]
-        time = (timer()-start)*((BPM/60.0)/2.0)
+        nd = (note.end_time - note.start_time)*((BPM/60.0)/2.0)
+        #print(nd, note.end_time, note.start_time)
 
-        if not note_on and time>=note.start_time and time<=note.end_time:
-            play_note(note)
-            note_on = True
+        play_note(note)
+        time.sleep(nd)
+        stop_note(note)
 
-        if time>=note.end_time:
-            stop_note(note)
-            index += 1
-            note_on = False
+        index += 1
+        if index == len(notes):
+            index = 0
 
 def sync():
     global BPM
@@ -113,13 +114,15 @@ def sync():
             time = now-last
             bpms.append(2500/(time*1000))
             last = now
-            BPM = sum(bpms)/len(bpms)
-            print(round(BPM), len(bpms), time)
-            bpms = bpms[-20:]
+            last_bpm = BPM
+            BPM = round(sum(bpms)/len(bpms))
+            if last_bpm != BPM:
+                print(BPM)
+            #print(round(BPM), len(bpms), time)
+            bpms = bpms[-60:]
 
 keyboard_listener = Listener(on_press=keypress_handler)
 keyboard_listener.start()
-#keyboard_listener.join()
 
 model = TrainedModel(
     config,
@@ -139,4 +142,5 @@ sync_thread.start()
 play_thread = threading.Thread(name='play', target=play)
 play_thread.start()
 
-print("\n\n💿 READY 💿\n\n")
+
+print("READY")
